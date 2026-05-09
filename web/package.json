@@ -1,0 +1,24 @@
+{
+  "name": "tokenquery-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@douyinfe/semi-icons": "^2.69.0",
+    "@douyinfe/semi-ui": "^2.69.0",
+    "axios": "^1.7.9",
+    "dayjs": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@douyinfe/vite-plugin-semi": "2.74.0-alpha.6",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "5.1.0"
+  }
+}

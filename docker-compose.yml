@@ -1,0 +1,14 @@
+services:
+  tokenquery:
+    image: tokenquery:local
+    container_name: tokenquery
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:18080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      TOKENQUERY_JWT_SECRET: ${TOKENQUERY_JWT_SECRET}
+      TOKENQUERY_ADMIN_USER: ${TOKENQUERY_ADMIN_USER}
+      TOKENQUERY_ADMIN_PASS: ${TOKENQUERY_ADMIN_PASS}
+      TZ: Asia/Shanghai
