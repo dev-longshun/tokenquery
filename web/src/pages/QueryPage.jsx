@@ -1,47 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Layout, Typography, Card, Input, Button, Form, Table, DatePicker,
-  Descriptions, Banner, Space, Tag, Tooltip, Pagination, Empty,
-} from '@douyinfe/semi-ui';
-import { IconSearch, IconDownload, IconKey } from '@douyinfe/semi-icons';
 import { api, formatQuotaAsUSD, formatTimestamp } from '../utils/api';
 
-const { Header, Content, Footer } = Layout;
-const { Title, Text } = Typography;
 const PAGE_SIZE = 20;
-
-const columns = [
-  { title: '时间', dataIndex: 'created_at', width: 170, render: formatTimestamp },
-  { title: '令牌名称', dataIndex: 'token_name', width: 140 },
-  { title: '模型', dataIndex: 'model_name', width: 200 },
-  { title: '用时', dataIndex: 'use_time', width: 80, render: (v) => v ? `${v}s` : '-' },
-  { title: '提示', dataIndex: 'prompt_tokens', width: 80 },
-  { title: '补全', dataIndex: 'completion_tokens', width: 80 },
-  {
-    title: '配额', dataIndex: 'quota', width: 120,
-    render: (v) => <Tooltip content={`原始: ${v}`}><span>{formatQuotaAsUSD(v)}</span></Tooltip>,
-  },
-  {
-    title: '流式', dataIndex: 'is_stream', width: 70,
-    render: (v) => v ? <Tag color='green'>是</Tag> : <Tag>否</Tag>,
-  },
-  {
-    title: 'Request ID', dataIndex: 'request_id', width: 200,
-    render: (v) => v ? (
-      <Tooltip content={v}>
-        <Text copyable={{ content: v }} style={{ fontFamily: 'monospace' }}>{v.slice(0, 12)}…</Text>
-      </Tooltip>
-    ) : '-',
-  },
-  {
-    title: '备注', dataIndex: 'content',
-    render: (v) => v ? (
-      <Tooltip content={v}>
-        <span style={{ display: 'inline-block', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
-      </Tooltip>
-    ) : '-',
-  },
-];
 
 export default function QueryPage() {
   const [siteInfo, setSiteInfo] = useState(null);
@@ -54,7 +14,7 @@ export default function QueryPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({ model_name: '', request_id: '', range: null });
+  const [filters, setFilters] = useState({ model_name: '', request_id: '', start: '', end: '' });
 
   useEffect(() => {
     api.get('/site').then((r) => {
@@ -64,13 +24,11 @@ export default function QueryPage() {
   }, []);
 
   const filterTimestamps = useMemo(() => {
-    const r = filters.range;
-    if (!r || r.length !== 2) return { start: 0, end: 0 };
     return {
-      start: r[0] ? Math.floor(new Date(r[0]).getTime() / 1000) : 0,
-      end: r[1] ? Math.floor(new Date(r[1]).getTime() / 1000) : 0,
+      start: filters.start ? Math.floor(new Date(filters.start).getTime() / 1000) : 0,
+      end: filters.end ? Math.floor(new Date(filters.end).getTime() / 1000) : 0,
     };
-  }, [filters.range]);
+  }, [filters.start, filters.end]);
 
   const normalizeKey = (k) => {
     let v = (k || '').trim();
@@ -119,11 +77,7 @@ export default function QueryPage() {
         model_name: filters.model_name || undefined,
         request_id: filters.request_id || undefined,
       };
-      const res = await api.get('/logs/export', {
-        headers: { 'X-Token-Key': key },
-        params,
-        responseType: 'blob',
-      });
+      const res = await api.get('/logs/export', { headers: { 'X-Token-Key': key }, params, responseType: 'blob' });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
@@ -132,54 +86,138 @@ export default function QueryPage() {
       a.download = m ? m[1] : `token-logs-${Date.now()}.csv`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e.message || '导出失败');
-    } finally { setExporting(false); }
+    } catch (e) { setError(e.message || '导出失败'); }
+    finally { setExporting(false); }
   };
 
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f7f8fa' }}>
-      <Header style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid var(--semi-color-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <IconKey size='large' />
-        <Title heading={4} style={{ margin: 0 }}>令牌查询{siteInfo ? ` · ${siteInfo.name}` : ''}</Title>
-      </Header>
-      <Content style={{ padding: 24, maxWidth: 1400, margin: '0 auto', width: '100%' }}>
-        {siteErr && <Banner type='warning' description={siteErr} closeIcon={null} style={{ marginBottom: 16 }} />}
-        <Card style={{ marginBottom: 16 }} bodyStyle={{ padding: 20 }}>
-          <Form layout='horizontal' onSubmit={() => doFetch(1)} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-            <Input prefix='sk-' placeholder='粘贴令牌密钥' style={{ width: 420 }} value={tokenKey} onChange={setTokenKey} mode='password' />
-            <DatePicker type='dateTimeRange' style={{ width: 360 }} value={filters.range} onChange={(v) => setFilters((f) => ({ ...f, range: v }))} placeholder={['开始', '结束']} />
-            <Input placeholder='模型名（子串匹配）' style={{ width: 180 }} value={filters.model_name} onChange={(v) => setFilters((f) => ({ ...f, model_name: v }))} />
-            <Input placeholder='Request ID' style={{ width: 200 }} value={filters.request_id} onChange={(v) => setFilters((f) => ({ ...f, request_id: v }))} />
-            <Space>
-              <Button theme='solid' type='primary' icon={<IconSearch />} onClick={() => doFetch(1)} loading={loading}>查询</Button>
-              <Button icon={<IconDownload />} onClick={handleExport} loading={exporting} disabled={!usage}>导出 CSV</Button>
-            </Space>
-          </Form>
-        </Card>
-        {error && <Banner type='danger' description={error} closeIcon={null} style={{ marginBottom: 16 }} />}
-        {usage && (
-          <Card title='额度概览' style={{ marginBottom: 16 }}>
-            <Descriptions row size='large' data={[
-              { key: '令牌名称', value: usage.name || '-' },
-              { key: '总额度', value: usage.unlimited_quota ? '无限' : formatQuotaAsUSD(usage.total_granted) },
-              { key: '已使用', value: formatQuotaAsUSD(usage.total_used) },
-              { key: '剩余', value: usage.unlimited_quota ? '无限' : formatQuotaAsUSD(usage.total_available) },
-              { key: '过期时间', value: (!usage.expires_at || usage.expires_at === -1) ? '永不过期' : formatTimestamp(usage.expires_at) },
-            ]} />
-          </Card>
+    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+      {/* Header */}
+      <header style={{ borderBottom: 'var(--border)', padding: 'var(--space-4) var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <h1 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}>
+          令牌查询{siteInfo ? ` · ${siteInfo.name}` : ''}
+        </h1>
+      </header>
+
+      <div className="container page-padding">
+        {siteErr && (
+          <div className="nb-card-static animate-fade-in-up" style={{ background: 'var(--yellow)', marginBottom: 'var(--space-6)' }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{siteErr}</p>
+          </div>
         )}
-        <Card title={`使用日志${total ? `（共 ${total} 条）` : ''}`} bodyStyle={{ padding: 0 }}>
-          <Table columns={columns} dataSource={logs} rowKey='id' loading={loading} pagination={false}
-            empty={<Empty title='暂无数据' description='输入令牌后点击查询' />} scroll={{ x: 1280 }} />
-          {total > PAGE_SIZE && (
-            <div style={{ padding: 16, textAlign: 'right' }}>
-              <Pagination total={total} pageSize={PAGE_SIZE} currentPage={page} onChange={doFetch} showTotal />
+
+        {/* Search */}
+        <div className="nb-card-static animate-fade-in-up" style={{ marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className="nb-label">令牌密钥</label>
+              <input className="nb-input" type="password" placeholder="粘贴 sk-xxx" value={tokenKey} onChange={(e) => setTokenKey(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doFetch(1)} />
             </div>
-          )}
-        </Card>
-      </Content>
-      <Footer style={{ textAlign: 'center', padding: 16, color: 'var(--semi-color-text-2)' }}>Powered by tokenquery</Footer>
-    </Layout>
+            <div>
+              <label className="nb-label">开始时间</label>
+              <input className="nb-input" type="datetime-local" value={filters.start} onChange={(e) => setFilters(f => ({ ...f, start: e.target.value }))} />
+            </div>
+            <div>
+              <label className="nb-label">结束时间</label>
+              <input className="nb-input" type="datetime-local" value={filters.end} onChange={(e) => setFilters(f => ({ ...f, end: e.target.value }))} />
+            </div>
+            <div>
+              <label className="nb-label">模型名</label>
+              <input className="nb-input" placeholder="子串匹配" value={filters.model_name} onChange={(e) => setFilters(f => ({ ...f, model_name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="nb-label">Request ID</label>
+              <input className="nb-input" placeholder="精确匹配" value={filters.request_id} onChange={(e) => setFilters(f => ({ ...f, request_id: e.target.value }))} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            <button className="nb-btn nb-btn-primary" onClick={() => doFetch(1)} disabled={loading}>
+              {loading ? '查询中...' : '查询'}
+            </button>
+            <button className="nb-btn nb-btn-secondary" onClick={handleExport} disabled={!usage || exporting}>
+              {exporting ? '导出中...' : '导出 CSV'}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="nb-card-static animate-fade-in-up" style={{ background: 'var(--red)', color: 'var(--cream)', marginBottom: 'var(--space-6)' }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Usage cards */}
+        {usage && (
+          <div className="animate-fade-in-up animate-delay-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+            <StatCard label="令牌名称" value={usage.name || '-'} bg="var(--ink)" color="var(--cream)" />
+            <StatCard label="总额度" value={usage.unlimited_quota ? '无限' : formatQuotaAsUSD(usage.total_granted)} bg="var(--green)" color="var(--cream)" />
+            <StatCard label="已使用" value={formatQuotaAsUSD(usage.total_used)} bg="var(--orange)" color="var(--cream)" />
+            <StatCard label="剩余" value={usage.unlimited_quota ? '无限' : formatQuotaAsUSD(usage.total_available)} bg="var(--blue)" color="var(--cream)" />
+          </div>
+        )}
+
+        {/* Logs table */}
+        {logs.length > 0 && (
+          <div className="nb-card-static animate-fade-in-up animate-delay-2" style={{ padding: 0, overflow: 'auto' }}>
+            <div style={{ padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid rgba(26,20,35,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700 }}>使用日志（共 {total} 条）</h3>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="nb-table">
+                <thead>
+                  <tr>
+                    <th>时间</th><th>令牌</th><th>模型</th><th>用时</th>
+                    <th>提示</th><th>补全</th><th>配额</th><th>流式</th><th>Request ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log, i) => (
+                    <tr key={i}>
+                      <td className="mono" style={{ whiteSpace: 'nowrap' }}>{formatTimestamp(log.created_at)}</td>
+                      <td>{log.token_name || '-'}</td>
+                      <td style={{ maxWidth: 200 }} className="truncate">{log.model_name || '-'}</td>
+                      <td className="mono">{log.use_time ? `${log.use_time}s` : '-'}</td>
+                      <td className="mono">{log.prompt_tokens}</td>
+                      <td className="mono">{log.completion_tokens}</td>
+                      <td className="mono">{formatQuotaAsUSD(log.quota)}</td>
+                      <td>{log.is_stream ? <span className="nb-badge nb-badge-active">是</span> : <span className="nb-badge">否</span>}</td>
+                      <td className="mono truncate" style={{ maxWidth: 160 }}>{log.request_id || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div style={{ padding: 'var(--space-4) var(--space-6)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                <button className="nb-btn nb-btn-sm nb-btn-secondary" disabled={page <= 1} onClick={() => doFetch(page - 1)}>上一页</button>
+                <span style={{ padding: 'var(--space-2) var(--space-3)', fontSize: '0.8125rem', fontWeight: 600 }}>{page} / {totalPages}</span>
+                <button className="nb-btn nb-btn-sm nb-btn-secondary" disabled={page >= totalPages} onClick={() => doFetch(page + 1)}>下一页</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && logs.length === 0 && usage && (
+          <div className="nb-card-static animate-fade-in-up" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
+            <p style={{ fontSize: '0.875rem', color: 'rgba(26,20,35,0.5)' }}>暂无日志记录</p>
+          </div>
+        )}
+      </div>
+
+      <footer style={{ textAlign: 'center', padding: 'var(--space-6)', fontSize: '0.75rem', color: 'rgba(26,20,35,0.4)' }}>
+        Powered by tokenquery
+      </footer>
+    </div>
+  );
+}
+
+function StatCard({ label, value, bg, color }) {
+  return (
+    <div className="nb-card-sm" style={{ background: bg, color }}>
+      <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.8, marginBottom: 'var(--space-1)' }}>{label}</div>
+      <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{value}</div>
+    </div>
   );
 }

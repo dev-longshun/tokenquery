@@ -1,42 +1,50 @@
 import React, { useState } from 'react';
-import { Card, Form, Button, Toast, Typography } from '@douyinfe/semi-ui';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 
-const { Title } = Typography;
-
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const onSubmit = async (values) => {
-    setLoading(true);
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!username || !password) { setError('请填写用户名和密码'); return; }
+    setLoading(true); setError('');
     try {
-      const r = await api.post('/admin/login', values);
+      const r = await api.post('/admin/login', { username, password });
       if (r.data?.success) {
         localStorage.setItem('tq_admin_token', r.data.data.token);
-        Toast.success('登录成功');
         navigate('/admin/sites');
       } else {
-        Toast.error(r.data?.message || '登录失败');
+        setError(r.data?.message || '登录失败');
       }
     } catch (e) {
-      Toast.error(e.response?.data?.message || e.message);
-    } finally {
-      setLoading(false);
-    }
+      setError(e.response?.data?.message || e.message);
+    } finally { setLoading(false); }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7f8fa' }}>
-      <Card style={{ width: 360 }}>
-        <Title heading={4} style={{ marginBottom: 24, textAlign: 'center' }}>管理员登录</Title>
-        <Form onSubmit={onSubmit}>
-          <Form.Input field='username' label='用户名' rules={[{ required: true, message: '必填' }]} />
-          <Form.Input field='password' label='密码' type='password' rules={[{ required: true, message: '必填' }]} />
-          <Button theme='solid' type='primary' htmlType='submit' block loading={loading} style={{ marginTop: 8 }}>登录</Button>
-        </Form>
-      </Card>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div className="nb-card animate-fade-in-up" style={{ width: 380, maxWidth: '90vw' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-6)', textAlign: 'center', letterSpacing: '-0.03em' }}>管理员登录</h2>
+        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div>
+            <label className="nb-label">用户名</label>
+            <input className="nb-input" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <label className="nb-label">密码</label>
+            <input className="nb-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p style={{ color: 'var(--red)', fontSize: '0.8125rem', fontWeight: 600, margin: 0 }}>{error}</p>}
+          <button className="nb-btn nb-btn-primary" type="submit" disabled={loading} style={{ width: '100%', marginTop: 'var(--space-2)' }}>
+            {loading ? '登录中...' : '登录'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

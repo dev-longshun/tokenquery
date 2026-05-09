@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import semiPlugin from '@douyinfe/vite-plugin-semi';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), semiPlugin.vitePluginSemi({ cssLayer: true })],
+  plugins: [react(), tailwindcss()],
   build: {
     outDir: '../cmd/server/webdist',
     emptyOutDir: true,
