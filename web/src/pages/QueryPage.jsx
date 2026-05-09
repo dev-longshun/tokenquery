@@ -114,6 +114,7 @@ export default function QueryPage() {
             <div style={{ gridColumn: 'span 2' }}>
               <label className="nb-label">令牌密钥</label>
               <input className="nb-input" type="password" placeholder="粘贴 sk-xxx" value={tokenKey} onChange={(e) => setTokenKey(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doFetch(1)} />
+              <p style={{ margin: 'var(--space-1) 0 0', fontSize: '0.75rem', color: 'rgba(26,20,35,0.5)' }}>🔒 你的密钥仅用于实时查询，不会被存储</p>
             </div>
             <div>
               <label className="nb-label">开始时间</label>
