@@ -8,7 +8,7 @@ COPY web ./
 RUN bun run build
 
 # 后端构建阶段
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.25-alpine AS go-builder
 ENV CGO_ENABLED=0
 WORKDIR /src
 COPY go.mod go.sum ./
